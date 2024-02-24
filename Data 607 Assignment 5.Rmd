@@ -1,0 +1,114 @@
+---
+title: "Data 607 Assignment 5"
+author: "ZIXIAN LIANG"
+date: "2024-02-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r include=FALSE}
+library(tidyverse)
+library(readr)
+library(tidyr)
+library(tibble)
+```
+
+## Introduction
+
+This assignment is to observe and compare the arrival delays of flights for two airlines at five destinations. Also, I need to organize the provided chart and reshape the data into a structured data frame for use.
+
+
+## Data Acquisition 
+
+Create CSV file by mirroring all of the information from image.
+
+Input file:"Image_dataframe.csv” from https://github.com/ZIXIANNOW/DATA607week5/blob/main/Image_dataframe.csv
+
+
+```{r}
+url <- 'https://raw.githubusercontent.com/ZIXIANNOW/DATA607week5/main/Image_dataframe.csv'
+database <- read_csv(url)
+database
+```
+## Data Correction
+
+There is one separator line should be removed and two airline names are missing that should be added back.
+
+
+```{r}
+data_clean <- database[!apply(is.na(database) | database == "NA", 1, all), ]
+data_clean
+```
+
+
+```{r}
+names(data_clean)[1] <- "Airline"
+names(data_clean)[2] <- "Flight_Status"
+first_na_index <- which(is.na(data_clean$Airline))[1]
+second_na_index <- which(is.na(data_clean$Airline))[2]
+data_clean$Airline[first_na_index] <- "ALASKA"
+data_clean$Airline[second_na_index] <- "AM WEST"
+data_clean
+```
+
+From here, will mutate variables for better counting.
+
+
+```{r}
+flights <- pivot_longer(data_clean, cols = 3:7, names_to = "Destination", values_to = "Count")
+flights
+```
+
+
+```{r}
+flight_update <-  flights %>% 
+             pivot_wider(names_from = Flight_Status, values_from = Count)
+flight_update
+```
+
+## Comparison
+
+Now adding additional columns for more intuitive comparison.
+
+
+```{r}
+flight_sum <- flight_update %>%
+  mutate(total_flight = rowSums(select(.,"on time", "delayed")))
+flight_sum
+```
+
+```{r}
+flight_subsum <- flight_sum %>%
+group_by(Airline,Destination) %>%
+summarise(delayed_total = sum(delayed) , total = sum(total_flight), delayed_rate = sum(delayed) / sum(total_flight)) %>%
+arrange(Airline,delayed_rate)
+flight_subsum
+```
+
+```{r}
+ggplot(flight_subsum, aes(x = Airline, y = delayed_rate, fill = Destination)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Arrival Delay Percentage by Airline", x = "Airline", y = "Delayed_Rate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+
+```{r}
+flight_sum %>%
+group_by(Airline) %>%
+summarise(delayed_total = sum(delayed) , total = sum(total_flight), delayed_rate = sum(delayed) / sum(total_flight)) %>%
+arrange(Airline)
+```
+
+
+## Conclusion
+
+Overall, although AM WEST has a higher total number of delayed flights compared to ALASKA, it doesn't mean it performs worse than ALASKA. This difference is primarily due to its higher total number of flights. From the delayed rate, we can observe that AM WEST has a rate of only 0.109, which is lower than ALASKA's rate of 0.133. In other words, AM WEST handles timely flights better than ALASKA. On the other hand, looking at the destinations, both airlines coincidentally have the highest number of delayed flights in San Francisco and the lowest in Phoenix. This indirectly reflects the busyness and air traffic situation at these destinations.
+
+
